@@ -125,7 +125,7 @@ class TransformerDecoder(torch.nn.Module):
         # tgt_mask: (B, L, L)
         tgt_mask = tgt_mask & m
 
-        x, _ = self.embed(tgt)
+        x = self.embed(tgt)
         for layer in self.decoders:
             x, tgt_mask, memory, memory_mask = layer(x, tgt_mask, memory,
                                                      memory_mask)
@@ -159,13 +159,94 @@ class TransformerDecoder(torch.nn.Module):
             y, cache: NN output value and cache per `self.decoders`.
             y.shape` is (batch, maxlen_out, token)
         """
-        x, _ = self.embed(tgt)
+        x = self.embed(tgt)
         new_cache = []
         for i, decoder in enumerate(self.decoders):
             if cache is None:
                 c = None
             else:
                 c = cache[i]
+            x, tgt_mask, memory, memory_mask = decoder(x,
+                                                       tgt_mask,
+                                                       memory,
+                                                       memory_mask,
+                                                       cache=c)
+            new_cache.append(x)
+        if self.normalize_before:
+            y = self.after_norm(x[:, -1])
+        else:
+            y = x[:, -1]
+        if self.use_output_layer:
+            y = torch.log_softmax(self.output_layer(y), dim=-1)
+        return y, new_cache
+
+    def init_forward_one_step(
+        self,
+        memory: torch.Tensor,
+        memory_mask: torch.Tensor,
+        tgt: torch.Tensor,
+        tgt_mask: torch.Tensor,
+    ) -> Tuple[torch.Tensor, List[torch.Tensor]]:
+        """Forward one step.
+
+        Args:
+            memory: encoded memory, float32  (batch, maxlen_in, feat)
+            memory_mask: encoded memory mask, (batch, 1, maxlen_in)
+            tgt: input token ids, int64 (batch, maxlen_out)
+            tgt_mask: input token mask,  (batch, maxlen_out)
+                      dtype=torch.uint8 in PyTorch 1.2-
+                      dtype=torch.bool in PyTorch 1.2+ (include 1.2)
+            cache: cached output list of (batch, max_time_out-1, size)
+        Returns:
+            y, cache: NN output value and cache per `self.decoders`.
+            y.shape` is (batch, maxlen_out, token)
+        """
+        # import pdb
+        # pdb.set_trace()
+        x, _ = self.embed(tgt)
+        new_cache = []
+        for i, decoder in enumerate(self.decoders):
+            c = None
+            x, tgt_mask, memory, memory_mask = decoder(x,
+                                                       tgt_mask,
+                                                       memory,
+                                                       memory_mask,
+                                                       cache=c)
+            new_cache.append(x)
+        if self.normalize_before:
+            y = self.after_norm(x[:, -1])
+        else:
+            y = x[:, -1]
+        if self.use_output_layer:
+            y = torch.log_softmax(self.output_layer(y), dim=-1)
+        return y, new_cache
+
+    def non_init_forward_one_step(
+        self,
+        memory: torch.Tensor,
+        memory_mask: torch.Tensor,
+        tgt: torch.Tensor,
+        tgt_mask: torch.Tensor,
+        cache: List[torch.Tensor],
+    ) -> Tuple[torch.Tensor, List[torch.Tensor]]:
+        """Forward one step.
+
+        Args:
+            memory: encoded memory, float32  (batch, maxlen_in, feat)
+            memory_mask: encoded memory mask, (batch, 1, maxlen_in)
+            tgt: input token ids, int64 (batch, maxlen_out)
+            tgt_mask: input token mask,  (batch, maxlen_out)
+                      dtype=torch.uint8 in PyTorch 1.2-
+                      dtype=torch.bool in PyTorch 1.2+ (include 1.2)
+            cache: cached output list of (batch, max_time_out-1, size)
+        Returns:
+            y, cache: NN output value and cache per `self.decoders`.
+            y.shape` is (batch, maxlen_out, token)
+        """
+        x, _ = self.embed(tgt)
+        new_cache = []
+        for i, decoder in enumerate(self.decoders):
+            c = cache[i]
             x, tgt_mask, memory, memory_mask = decoder(x,
                                                        tgt_mask,
                                                        memory,

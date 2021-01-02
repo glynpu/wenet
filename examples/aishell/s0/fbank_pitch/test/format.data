@@ -1,0 +1,10 @@
+utt:BAC009S0764W0121	feat:fbank_pitch/test/test_feat.ark:17	feat_shape:418,83	text:甚至出现交易几乎停滞的情况	token:甚 至 出 现 交 易 几 乎 停 滞 的 情 况	tokenid:2474 3116 331 2408 82 1684 321 47 235 2199 2553 1319 307	token_shape:13,4233
+utt:BAC009S0764W0122	feat:fbank_pitch/test/test_feat.ark:138825	feat_shape:410,83	text:一二线城市虽然也处于调整中	token:一 二 线 城 市 虽 然 也 处 于 调 整 中	tokenid:2 70 2885 764 1121 3308 2303 58 804 71 3502 1638 30	token_shape:13,4233
+utt:BAC009S0764W0123	feat:fbank_pitch/test/test_feat.ark:274977	feat_shape:398,83	text:但因为聚集了过多公共资源	token:但 因 为 聚 集 了 过 多 公 共 资 源	tokenid:156 704 36 3016 3998 66 3696 811 274 277 3570 2183	token_shape:12,4233
+utt:BAC009S0764W0124	feat:fbank_pitch/test/test_feat.ark:407145	feat_shape:522,83	text:为了规避三四线城市明显过剩的市场风险	token:为 了 规 避 三 四 线 城 市 明 显 过 剩 的 市 场 风 险	tokenid:36 66 3419 3764 7 702 2885 764 1121 1682 1698 3696 373 2553 1121 724 4083 3973	token_shape:18,4233
+utt:BAC009S0764W0125	feat:fbank_pitch/test/test_feat.ark:580481	feat_shape:429,83	text:标杆房企必然调整市场战略	token:标 杆 房 企 必 然 调 整 市 场 战 略	tokenid:1820 1766 1393 128 1246 2303 3502 1638 1121 724 1383 2498	token_shape:12,4233
+utt:BAC009S0764W0126	feat:fbank_pitch/test/test_feat.ark:722941	feat_shape:348,83	text:因此土地储备至关重要	token:因 此 土 地 储 备 至 关 重 要	tokenid:704 1939 716 722 243 805 3116 278 3828 3414	token_shape:10,4233
+utt:BAC009S0764W0127	feat:fbank_pitch/test/test_feat.ark:838509	feat_shape:443,83	text:中原地产首席分析师张大伟说	token:中 原 地 产 首 席 分 析 师 张 大 伟 说	tokenid:30 470 722 85 4115 1135 338 1789 1125 1199 814 141 3490	token_shape:13,4233
+utt:BAC009S0764W0128	feat:fbank_pitch/test/test_feat.ark:985617	feat_shape:355,83	text:一线城市土地供应量减少	token:一 线 城 市 土 地 供 应 量 减 少	tokenid:2 2885 764 1121 716 722 184 1164 3830 318 1021	token_shape:11,4233
+utt:BAC009S0764W0129	feat:fbank_pitch/test/test_feat.ark:1103509	feat_shape:357,83	text:也助推了土地市场的火爆	token:也 助 推 了 土 地 市 场 的 火 爆	tokenid:58 388 1544 66 716 722 1121 724 2553 2246 2329	token_shape:11,4233
+utt:BAC009S0764W0130	feat:fbank_pitch/test/test_feat.ark:1222065	feat_shape:523,83	text:北京仅新增住宅土地供应十宗	token:北 京 仅 新 增 住 宅 土 地 供 应 十 宗	tokenid:413 89 100 1656 790 159 958 716 722 184 1164 426 967	token_shape:13,4233

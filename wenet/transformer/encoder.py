@@ -129,6 +129,7 @@ class BaseEncoder(torch.nn.Module):
         Returns:
             encoder output tensor, lens and mask
         """
+        xs_lens = xs_lens.type(torch.int64)
         masks = ~make_pad_mask(xs_lens).unsqueeze(1)  # (B, 1, L)
         xs, pos_emb, masks = self.embed(xs_pad, masks)
         chunk_masks = add_optional_chunk_mask(xs, masks,
