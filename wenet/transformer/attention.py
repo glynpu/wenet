@@ -8,7 +8,6 @@
 import math
 from typing import Optional, Tuple
 
-import numpy
 import torch
 from torch import nn
 
@@ -22,7 +21,6 @@ class MultiHeadedAttention(nn.Module):
         dropout_rate (float): Dropout rate.
 
     """
-
     def __init__(self, n_head: int, n_feat: int, dropout_rate: float):
         """Construct an MultiHeadedAttention object."""
         super().__init__()
@@ -37,7 +35,7 @@ class MultiHeadedAttention(nn.Module):
         self.dropout = nn.Dropout(p=dropout_rate)
 
     def forward_qkv(
-            self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
+        self, query: torch.Tensor, key: torch.Tensor, value: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Transform query, key and value.
 
@@ -47,9 +45,12 @@ class MultiHeadedAttention(nn.Module):
             value (torch.Tensor): Value tensor (#batch, time2, size).
 
         Returns:
-            torch.Tensor: Transformed query tensor (#batch, n_head, time1, d_k).
-            torch.Tensor: Transformed key tensor (#batch, n_head, time2, d_k).
-            torch.Tensor: Transformed value tensor (#batch, n_head, time2, d_k).
+            torch.Tensor: Transformed query tensor, size
+                (#batch, n_head, time1, d_k).
+            torch.Tensor: Transformed key tensor, size
+                (#batch, n_head, time2, d_k).
+            torch.Tensor: Transformed value tensor, size
+                (#batch, n_head, time2, d_k).
 
         """
         n_batch = query.size(0)
@@ -67,9 +68,12 @@ class MultiHeadedAttention(nn.Module):
         """Compute attention context vector.
 
         Args:
-            value (torch.Tensor): Transformed value (#batch, n_head, time2, d_k).
-            scores (torch.Tensor): Attention score (#batch, n_head, time1, time2).
-            mask (torch.Tensor): Mask (#batch, 1, time2) or (#batch, time1, time2).
+            value (torch.Tensor): Transformed value, size
+                (#batch, n_head, time2, d_k).
+            scores (torch.Tensor): Attention score, size
+                (#batch, n_head, time1, time2).
+            mask (torch.Tensor): Mask, size (#batch, 1, time2) or
+                (#batch, time1, time2).
 
         Returns:
             torch.Tensor: Transformed value (#batch, time1, d_model)
@@ -87,8 +91,9 @@ class MultiHeadedAttention(nn.Module):
 
         p_attn = self.dropout(attn)
         x = torch.matmul(p_attn, value)  # (batch, head, time1, d_k)
-        x = (x.transpose(1, 2).contiguous().view(n_batch, -1, self.h * self.d_k)
-            )  # (batch, time1, d_model)
+        x = (x.transpose(1, 2).contiguous().view(n_batch, -1,
+                                                 self.h * self.d_k)
+             )  # (batch, time1, d_model)
 
         return self.linear_out(x)  # (batch, time1, d_model)
 
@@ -121,11 +126,10 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         n_feat (int): The number of features.
         dropout_rate (float): Dropout rate.
     """
-
     def __init__(self, n_head, n_feat, dropout_rate):
         """Construct an RelPositionMultiHeadedAttention object."""
         super().__init__(n_head, n_feat, dropout_rate)
-        # linear transformation for positional ecoding
+        # linear transformation for positional encoding
         self.linear_pos = nn.Linear(n_feat, n_feat, bias=False)
         # these two learnable bias are used in matrix c and matrix d
         # as described in https://arxiv.org/abs/1901.02860 Section 3.3
@@ -138,11 +142,11 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         """Compute relative positinal encoding.
         Args:
             x (torch.Tensor): Input tensor (batch, time, size).
-            zero_triu (bool): If true, return the lower triangular part of the matrix.
+            zero_triu (bool): If true, return the lower triangular part of
+                the matrix.
         Returns:
             torch.Tensor: Output tensor.
         """
-        #print(x.size()[1])
 
         zero_pad = torch.zeros((x.size()[0], x.size()[1], x.size()[2], 1),
                                device=x.device,
@@ -168,7 +172,8 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
             query (torch.Tensor): Query tensor (#batch, time1, size).
             key (torch.Tensor): Key tensor (#batch, time2, size).
             value (torch.Tensor): Value tensor (#batch, time2, size).
-            pos_emb (torch.Tensor): Positional embedding tensor (#batch, time2, size).
+            pos_emb (torch.Tensor): Positional embedding tensor
+                (#batch, time2, size).
             mask (torch.Tensor): Mask tensor (#batch, 1, time2) or
                 (#batch, time1, time2).
         Returns:
@@ -195,7 +200,9 @@ class RelPositionMultiHeadedAttention(MultiHeadedAttention):
         # compute matrix b and matrix d
         # (batch, head, time1, time2)
         matrix_bd = torch.matmul(q_with_bias_v, p.transpose(-2, -1))
-        matrix_bd = self.rel_shift(matrix_bd)
+        # Remove rel_shift since it is useless in speech recognition,
+        # and it requires special attention for streaming.
+        # matrix_bd = self.rel_shift(matrix_bd)
 
         scores = (matrix_ac + matrix_bd) / math.sqrt(
             self.d_k)  # (batch, head, time1, time2)

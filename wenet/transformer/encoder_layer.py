@@ -10,26 +10,28 @@ from typing import Optional, Tuple
 import torch
 from torch import nn
 
+
 class TransformerEncoderLayer(nn.Module):
     """Encoder layer module.
 
     Args:
         size (int): Input dimension.
         self_attn (torch.nn.Module): Self-attention module instance.
-            `MultiHeadedAttention` or `RelPositionMultiHeadedAttention` instance
-            can be used as the argument.
+            `MultiHeadedAttention` or `RelPositionMultiHeadedAttention`
+            instance can be used as the argument.
         feed_forward (torch.nn.Module): Feed-forward module instance.
-            `PositionwiseFeedForward`, `MultiLayeredConv1d`, or `Conv1dLinear` instance
-            can be used as the argument.
+            `PositionwiseFeedForward`, instance can be used as the argument.
         dropout_rate (float): Dropout rate.
-        normalize_before (bool): Whether to use layer_norm before the first block.
-        concat_after (bool): Whether to concat attention layer's input and output.
+        normalize_before (bool): Whether to use layer_norm before the first
+            block.
+        concat_after (bool): Whether to concat attention layer's input and
+            output.
             if True, additional linear will be applied.
-            i.e. x -> x + linear(concat(x, att(x)))
-            if False, no additional linear will be applied. i.e. x -> x + att(x)
+                i.e. x -> x + linear(concat(x, att(x)))
+            if False, no additional linear will be applied.
+                i.e. x -> x + att(x)
 
     """
-
     def __init__(
         self,
         size: int,
@@ -49,22 +51,29 @@ class TransformerEncoderLayer(nn.Module):
         self.size = size
         self.normalize_before = normalize_before
         self.concat_after = concat_after
-        # concat_linear may be not used in forward fuction, but will be saved in the *.pt
+        # concat_linear may be not used in forward fuction,
+        # but will be saved in the *.pt
         self.concat_linear = nn.Linear(size + size, size)
 
     def forward(
         self,
         x: torch.Tensor,
         mask: torch.Tensor,
-        cache: Optional[torch.Tensor] = None
-    ) -> Tuple[torch.Tensor, torch.Tensor]:
+        pos_emb: torch.Tensor,
+        output_cache: Optional[torch.Tensor] = None,
+        cnn_cache: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Compute encoded features.
 
         Args:
-            x_input (torch.Tensor): Input tensor (#batch, time, size).
+            x (torch.Tensor): Input tensor (#batch, time, size).
             mask (torch.Tensor): Mask tensor for the input (#batch, time).
-            cache (torch.Tensor): Cache tensor of the input (#batch, time - 1, size).
-
+            pos_emb (torch.Tensor): just for interface compatibility
+                to ConformerEncoderLayer
+            output_cache (torch.Tensor): Cache tensor of the output
+                (#batch, time2, size), time2 < time in x.
+            cnn_cache (torch.Tensor): not used here, it's for interface
+                compatibility to ConformerEncoderLayer
         Returns:
             torch.Tensor: Output tensor (#batch, time, size).
             torch.Tensor: Mask tensor (#batch, time).
@@ -74,13 +83,16 @@ class TransformerEncoderLayer(nn.Module):
         if self.normalize_before:
             x = self.norm1(x)
 
-        if cache is None:
+        if output_cache is None:
             x_q = x
         else:
-            assert cache.shape == (x.shape[0], x.shape[1] - 1, self.size)
-            x_q = x[:, -1:, :]
-            residual = residual[:, -1:, :]
-            mask = mask[:, -1:, :]
+            assert output_cache.size(0) == x.size(0)
+            assert output_cache.size(2) == self.size
+            assert output_cache.size(1) < x.size(1)
+            chunk = x.size(1) - output_cache.size(1)
+            x_q = x[:, -chunk:, :]
+            residual = residual[:, -chunk:, :]
+            mask = mask[:, -chunk:, :]
 
         if self.concat_after:
             x_concat = torch.cat((x, self.self_attn(x_q, x, x, mask)), dim=-1)
@@ -97,10 +109,11 @@ class TransformerEncoderLayer(nn.Module):
         if not self.normalize_before:
             x = self.norm2(x)
 
-        if cache is not None:
-            x = torch.cat([cache, x], dim=1)
+        if output_cache is not None:
+            x = torch.cat([output_cache, x], dim=1)
 
-        return x, mask
+        fake_cnn_cache = torch.tensor([0.0], dtype=x.dtype, device=x.device)
+        return x, mask, fake_cnn_cache
 
 
 class ConformerEncoderLayer(nn.Module):
@@ -108,24 +121,25 @@ class ConformerEncoderLayer(nn.Module):
     Args:
         size (int): Input dimension.
         self_attn (torch.nn.Module): Self-attention module instance.
-            `MultiHeadedAttention` or `RelPositionMultiHeadedAttention` instance
-            can be used as the argument.
+            `MultiHeadedAttention` or `RelPositionMultiHeadedAttention`
+            instance can be used as the argument.
         feed_forward (torch.nn.Module): Feed-forward module instance.
-            `PositionwiseFeedForward`, `MultiLayeredConv1d`, or `Conv1dLinear` instance
-            can be used as the argument.
-        feed_forward_macaron (torch.nn.Module): Additional feed-forward module instance.
-            `PositionwiseFeedForward`, `MultiLayeredConv1d`, or `Conv1dLinear` instance
-            can be used as the argument.
+            `PositionwiseFeedForward` instance can be used as the argument.
+        feed_forward_macaron (torch.nn.Module): Additional feed-forward module
+             instance.
+            `PositionwiseFeedForward` instance can be used as the argument.
         conv_module (torch.nn.Module): Convolution module instance.
             `ConvlutionModule` instance can be used as the argument.
         dropout_rate (float): Dropout rate.
-        normalize_before (bool): Whether to use layer_norm before the first block.
-        concat_after (bool): Whether to concat attention layer's input and output.
+        normalize_before (bool): Whether to use layer_norm before the first
+            block.
+        concat_after (bool): Whether to concat attention layer's input and
+            output.
             if True, additional linear will be applied.
-            i.e. x -> x + linear(concat(x, att(x)))
-            if False, no additional linear will be applied. i.e. x -> x + att(x)
+                i.e. x -> x + linear(concat(x, att(x)))
+            if False, no additional linear will be applied.
+                i.e. x -> x + att(x)
     """
-
     def __init__(
         self,
         size: int,
@@ -151,34 +165,37 @@ class ConformerEncoderLayer(nn.Module):
         else:
             self.ff_scale = 1.0
         if self.conv_module is not None:
-            self.norm_conv = nn.LayerNorm(size, eps=1e-12)  # for the CNN module
+            self.norm_conv = nn.LayerNorm(size,
+                                          eps=1e-12)  # for the CNN module
             self.norm_final = nn.LayerNorm(
                 size, eps=1e-12)  # for the final output of the block
         self.dropout = nn.Dropout(dropout_rate)
         self.size = size
         self.normalize_before = normalize_before
         self.concat_after = concat_after
-        #if self.concat_after:
         self.concat_linear = nn.Linear(size + size, size)
 
     def forward(
         self,
-        x_input: Tuple[torch.Tensor, torch.Tensor],
+        x: torch.Tensor,
         mask: torch.Tensor,
-        cache: Optional[torch.Tensor] = None
-    ) -> Tuple[Tuple[torch.Tensor, torch.Tensor], torch.Tensor]:
+        pos_emb: torch.Tensor,
+        output_cache: Optional[torch.Tensor] = None,
+        cnn_cache: Optional[torch.Tensor] = None,
+    ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
         """Compute encoded features.
         Args:
-            x_input (Union[Tuple, torch.Tensor]): Input tensor w/ or w/o pos emb.
-                - w/ pos emb: Tuple of tensors [(#batch, time, size), (1, time, size)].
-                - w/o pos emb: Tensor (#batch, time, size).
+            x (torch.Tensor): (#batch, time, size)
             mask (torch.Tensor): Mask tensor for the input (#batch, time).
-            cache (torch.Tensor): Cache tensor of the input (#batch, time - 1, size).
+            pos_emb (torch.Tensor): positional encoding, must not be None
+                for ConformerEncoderLayer.
+            output_cache (torch.Tensor): Cache tensor of the output
+                (#batch, time2, size), time2 < time in x.
+            cnn_cache (torch.Tensor): Convolution cache in conformer layer
         Returns:
             torch.Tensor: Output tensor (#batch, time, size).
             torch.Tensor: Mask tensor (#batch, time).
         """
-        x, pos_emb = x_input[0], x_input[1]
 
         # whether to use macaron style
         if self.feed_forward_macaron is not None:
@@ -195,17 +212,18 @@ class ConformerEncoderLayer(nn.Module):
         if self.normalize_before:
             x = self.norm_mha(x)
 
-        if cache is None:
+        if output_cache is None:
             x_q = x
         else:
-            assert cache.shape == (x.shape[0], x.shape[1] - 1, self.size)
-            x_q = x[:, -1:, :]
-            residual = residual[:, -1:, :]
-            mask = mask[:, -1:, :]
-        if pos_emb is not None:
-            x_att = self.self_attn(x_q, x, x, pos_emb, mask)
-        else:
-            x_att = self.self_attn(x_q, x, x, mask)
+            assert output_cache.size(0) == x.size(0)
+            assert output_cache.size(2) == self.size
+            assert output_cache.size(1) < x.size(1)
+            chunk = x.size(1) - output_cache.size(1)
+            x_q = x[:, -chunk:, :]
+            residual = residual[:, -chunk:, :]
+            mask = mask[:, -chunk:, :]
+
+        x_att = self.self_attn(x_q, x, x, pos_emb, mask)
 
         if self.concat_after:
             x_concat = torch.cat((x, x_att), dim=-1)
@@ -216,12 +234,14 @@ class ConformerEncoderLayer(nn.Module):
             x = self.norm_mha(x)
 
         # convolution module
+        # Fake new cnn cache here, and then change it in conv_module
+        new_cnn_cache = torch.tensor([0.0], dtype=x.dtype, device=x.device)
         if self.conv_module is not None:
             residual = x
             if self.normalize_before:
                 x = self.norm_conv(x)
-
-            x = residual + self.dropout(self.conv_module(x))
+            x, new_cnn_cache = self.conv_module(x, cnn_cache)
+            x = residual + self.dropout(x)
 
             if not self.normalize_before:
                 x = self.norm_conv(x)
@@ -238,9 +258,7 @@ class ConformerEncoderLayer(nn.Module):
         if self.conv_module is not None:
             x = self.norm_final(x)
 
-        if cache is not None:
-            x = torch.cat([cache, x], dim=1)
+        if output_cache is not None:
+            x = torch.cat([output_cache, x], dim=1)
 
-        # if pos_emb is not None:
-        return (x, pos_emb), mask
-
+        return x, mask, new_cnn_cache
